@@ -1,5 +1,5 @@
 {
-  "name": "neoma-{{PACKAGE_NAME}}",
+  "name": "neoma-managed-app",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -9,13 +9,13 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "tsc -p ./libs/{{PACKAGE_NAME}}/tsconfig.lib.json",
+    "build": "tsc -p ./libs/managed-app/tsconfig.lib.json",
     "lint": "eslint .",
-    "test": "node node_modules/.bin/jest --watch --runInBand",
+    "pretest:e2e": "npm run build",
     "test:e2e": "node node_modules/.bin/jest --config ./specs/jest-e2e.json --watch --runInBand"
   },
   "dependencies": {
-    "@neoma/{{PACKAGE_NAME}}": "file:./libs/{{PACKAGE_NAME}}",
+    "@neoma/managed-app": "file:./libs/managed-app/src",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",

@@ -1,19 +1,19 @@
 {
-  "name": "@neoma/{{PACKAGE_NAME}}",
+  "name": "@neoma/managed-app",
   "version": "0.1.0",
-  "description": "{{PACKAGE_DESCRIPTION}}",
+  "description": "A package for creating a managed NestJs application in tests.",
   "author": "Shipdventures",
   "repository": {
     "type": "git",
-    "url": "{{REPO_URL}}"
+    "url": "https://github.com/shipdventures/neoma-managed-app"
   },
   "bugs": {
-    "url": "{{REPO_URL}}/issues"
+    "url": "https://github.com/shipdventures/neoma-managed-app/issues"
   },
-  "homepage": "{{REPO_URL}}#readme",
+  "homepage": "https://github.com/shipdventures/neoma-managed-app#readme",
   "keywords": [
     "nestjs",
-    "{{PACKAGE_NAME}}",
+    "managed-app",
     "laravel",
     "neoma"
   ],

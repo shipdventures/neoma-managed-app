@@ -44,6 +44,8 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
       // Any prettier issues are a lint error.
       "prettier/prettier": ["error"],
+      // Disallow console logs in code.
+      "no-console": "error",
     },
   },
 )
