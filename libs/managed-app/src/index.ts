@@ -33,8 +33,15 @@ const getDefaultModule = async (): Promise<Type<any>> => {
   let moduleImport: any
   try {
     moduleImport = await import(fullPath)
-  } catch {
-    throw new Error(`Module not found: ${fullPath}`)
+  } catch (e) {
+    if (e.code === "MODULE_NOT_FOUND" || e.code === "ENOENT") {
+      throw new Error(
+        `${fullPath} module not found. Please ensure a module exists at src/application/appliction.module.ts with the named import ApplicationModule or that process.env.NEOMA_MANAGED_APP_MODULE_PATH is set correctly.`,
+      )
+    }
+    throw new Error(
+      `Module found but an error occured whilst importing. Error: ${e.message}`,
+    )
   }
 
   const ModuleClass = moduleImport[exportName]
@@ -43,7 +50,9 @@ const getDefaultModule = async (): Promise<Type<any>> => {
     return ModuleClass
   }
 
-  throw new Error(`Module found but no export named ${exportName}: ${fullPath}`)
+  throw new Error(
+    `${fullPath} module found but is missing an export named ${exportName}. Please ensure a module exists at src/application/appliction.module.ts with the named import ApplicationModule or that process.env.NEOMA_MANAGED_APP_MODULE_PATH is set correctly.`,
+  )
 }
 
 /**

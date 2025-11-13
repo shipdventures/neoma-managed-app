@@ -9,6 +9,7 @@
   "setupFilesAfterEnv": ["<rootDir>/../fixtures/e2e-setup.js"],
   "moduleNameMapper": {
     "^fixtures/(.*)$": "<rootDir>/../fixtures/$1",
-    "^src/(.*)$": "<rootDir>/../src/$1"
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^@lib$": "<rootDir>/../libs/managed-app/src"
   }
 }
