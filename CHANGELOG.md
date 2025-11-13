@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-13
+
 ### Added
 - Comprehensive error handling for module loading failures
 - Support for test modules that intentionally throw errors during import
@@ -37,5 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TypeScript support with comprehensive type definitions
 - Basic error handling for module loading failures
 
-[unreleased]: https://github.com/shipdventures/neoma-managed-app/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/shipdventures/neoma-managed-app/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/shipdventures/neoma-managed-app/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shipdventures/neoma-managed-app/releases/tag/v0.1.0
