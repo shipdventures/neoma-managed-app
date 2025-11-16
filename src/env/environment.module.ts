@@ -9,8 +9,8 @@ import {
   providers: [
     {
       provide: CONTROLLER_MESSAGE,
-      useValue: "Hello from src/application/application.module.ts#AppModule",
+      useValue: "Hello from src/env/environment.module.ts#EnvironmentModule",
     },
   ],
 })
-export class EnvModule {}
+export class EnvironmentModule {}

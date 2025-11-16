@@ -21,14 +21,14 @@ import { resolve } from "path"
  *
  * @returns A Promise that resolves to the module class.
  */
-const getDefaultModule = async (): Promise<Type<any>> => {
-  const modulePath =
-    process.env.NEOMA_MANAGED_APP_MODULE_PATH ||
-    "src/application/application.module.ts#ApplicationModule"
-
-  const moduleParts = modulePath.split("#")
-  const fullPath = resolve(...moduleParts.slice(0, -1))
-  const exportName = moduleParts[moduleParts.length - 1]
+const loadAppModule = async (
+  modulePath = "src/application/application.module.ts#ApplicationModule",
+): Promise<{
+  module: Type<any>
+  path: string
+}> => {
+  const [path, exportName] = modulePath.split("#")
+  const fullPath = resolve(path)
 
   let moduleImport: any
   try {
@@ -36,22 +36,22 @@ const getDefaultModule = async (): Promise<Type<any>> => {
   } catch (e) {
     if (e.code === "MODULE_NOT_FOUND" || e.code === "ENOENT") {
       throw new Error(
-        `${fullPath} module not found. Please ensure a module exists at src/application/appliction.module.ts with the named import ApplicationModule or that process.env.NEOMA_MANAGED_APP_MODULE_PATH is set correctly.`,
+        `${modulePath} module not found. Please ensure a module exists at ${fullPath} with the named import ${exportName}.`,
       )
     }
     throw new Error(
-      `Module found but an error occured whilst importing. Error: ${e.message}`,
+      `${path} module found but an error occured whilst importing. Error: ${e.message}`,
     )
   }
 
   const ModuleClass = moduleImport[exportName]
 
   if (ModuleClass) {
-    return ModuleClass
+    return { module: ModuleClass, path: fullPath }
   }
 
   throw new Error(
-    `${fullPath} module found but is missing an export named ${exportName}. Please ensure a module exists at src/application/appliction.module.ts with the named import ApplicationModule or that process.env.NEOMA_MANAGED_APP_MODULE_PATH is set correctly.`,
+    `${path} module found but it is missing an export named ${exportName}. Please ensure a module exists at ${fullPath} with the named import ${exportName}.`,
   )
 }
 
@@ -74,11 +74,12 @@ export const nestJsApp = async (
   })
 }
 
-let appInstance: INestApplication<App> | null = null
+const appInstances: Record<string, INestApplication<App>> = {}
 afterEach(async () => {
-  if (appInstance) {
-    await appInstance.close()
-    appInstance = null
+  for (const appInstanceKey in appInstances) {
+    const instance = appInstances[appInstanceKey]
+    await instance.close()
+    delete appInstances[appInstanceKey]
   }
 })
 
@@ -109,8 +110,15 @@ afterEach(async () => {
  * @returns A Promise that resolves to the managed {@link INestApplication} instance.
  */
 export const managedAppInstance = async (): Promise<INestApplication<App>> => {
+  const path =
+    process.env.NEOMA_MANAGED_APP_MODULE_PATH ||
+    "src/application/application.module.ts#ApplicationModule"
+
+  let appInstance = appInstances[path]
   if (!appInstance) {
-    appInstance = await nestJsApp(await getDefaultModule())
+    const appDetails = await loadAppModule(path)
+    appInstance = await nestJsApp(appDetails.module)
+    appInstances[path] = appInstance
     return appInstance.init()
   }
   return appInstance

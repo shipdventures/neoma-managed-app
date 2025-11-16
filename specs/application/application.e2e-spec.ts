@@ -2,7 +2,7 @@ import { HttpStatus, INestApplication } from "@nestjs/common"
 import * as request from "supertest"
 import { App } from "supertest/types"
 import { managedAppInstance } from "@lib"
-import { copyFileSync, existsSync, rmSync } from "fs"
+import { copyFileSync } from "fs"
 import { resolve } from "path"
 
 const SRC = "src/application/bak.application.module.ts"
@@ -13,14 +13,6 @@ const ERROR_SRC = "src/application/bak.error.module.ts"
 const ERROR_MODULE = "ErrorModule"
 
 describe(LOCATION, () => {
-  beforeEach(() => {
-    if (existsSync(LOCATION)) {
-      rmSync(LOCATION)
-    }
-    delete process.env.NEOMA_MANAGED_APP_MODULE_PATH
-    jest.resetModules()
-  })
-
   describe(`When there is a module at ${LOCATION} with the export ${MODULE}`, () => {
     let app: INestApplication<App>
     beforeEach(async () => {
@@ -48,7 +40,7 @@ describe(LOCATION, () => {
 
     it("it should throw an error.", async () => {
       return expect(managedAppInstance()).rejects.toThrow(
-        `${resolve(LOCATION)} module found but is missing an export named ${MODULE}. Please ensure a module exists at src/application/appliction.module.ts with the named import ApplicationModule or that process.env.NEOMA_MANAGED_APP_MODULE_PATH is set correctly.`,
+        `${LOCATION} module found but it is missing an export named ${MODULE}. Please ensure a module exists at ${resolve(LOCATION)} with the named import ${MODULE}.`,
       )
     })
   })
@@ -62,7 +54,7 @@ describe(LOCATION, () => {
 
         it("it should throw an error", () => {
           return expect(managedAppInstance()).rejects.toThrow(
-            "Module found but an error occured whilst importing. Error: This is a deliberate error in the module",
+            `${LOCATION} module found but an error occured whilst importing. Error: This is a deliberate error in the module`,
           )
         })
       })
@@ -72,7 +64,7 @@ describe(LOCATION, () => {
   describe(`When there is not a module at ${LOCATION}`, () => {
     it("it should throw an error.", async () => {
       return expect(managedAppInstance()).rejects.toThrow(
-        `${resolve(LOCATION)} module not found. Please ensure a module exists at src/application/appliction.module.ts with the named import ApplicationModule or that process.env.NEOMA_MANAGED_APP_MODULE_PATH is set correctly.`,
+        `${LOCATION}#${MODULE} module not found. Please ensure a module exists at ${resolve(LOCATION)} with the named import ${MODULE}.`,
       )
     })
   })
