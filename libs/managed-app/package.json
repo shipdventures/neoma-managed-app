@@ -1,6 +1,6 @@
 {
   "name": "@neoma/managed-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A package for creating a managed NestJs application in tests.",
   "author": "Shipdventures",
   "repository": {

@@ -55,27 +55,34 @@ describe("My API", () => {
 
 ## API Reference
 
-### `managedAppInstance()`
+### `managedAppInstance(moduleDescriptor?)`
 
-Creates and returns a managed singleton NestJS application instance. The instance is automatically reused across multiple test calls and cleaned up after each test.
+Creates and returns a managed NestJS application instance. Supports multiple isolated instances based on different module paths, with automatic caching and cleanup.
 
 ```typescript
-async function managedAppInstance(): Promise<INestApplication<App>>
+async function managedAppInstance(moduleDescriptor?: string): Promise<INestApplication<App>>
 ```
+
+**Parameters**:
+- `moduleDescriptor` (optional): Module path in format `path/to/module.ts#ExportedModuleName`
 
 **Returns**: A Promise that resolves to a NestJS application instance
 
-**Behavior**:
-- First call: Creates and initializes the app
-- Subsequent calls: Returns the cached instance
-- After each test: Automatically closes and cleans up the instance via Jest's `afterEach` hook
+**Module Path Resolution** (in order of precedence):
+1. **Function parameter**: Direct module path passed to the function
+2. **Environment variable**: `NEOMA_MANAGED_APP_MODULE_PATH`
+3. **Default**: `src/application/application.module.ts#ApplicationModule`
 
-**Default Module**: Loads from `src/application/application.module.ts#ApplicationModule`
+**Multi-App Support**:
+- Each unique module path gets its own cached instance
+- Different module paths = different isolated app instances
+- Same module path = same cached instance (singleton per path)
 
-**Example**:
+**Examples**:
 
 ```typescript
-describe("API Tests", () => {
+// Basic usage (default module)
+describe("Default API Tests", () => {
   let app: INestApplication
 
   beforeEach(async () => {
@@ -86,6 +93,37 @@ describe("API Tests", () => {
     return request(app.getHttpServer())
       .get("/api/users")
       .expect(200)
+  })
+})
+
+// Using environment variable
+describe("Custom Module Tests", () => {
+  beforeEach(() => {
+    process.env.NEOMA_MANAGED_APP_MODULE_PATH = "src/test/test.module.ts#TestModule"
+  })
+
+  it("should load custom module", async () => {
+    const app = await managedAppInstance()
+    // Uses test module configuration
+  })
+})
+
+// Using direct parameter (highest precedence)
+describe("Parameter Module Tests", () => {
+  it("should load specific module", async () => {
+    const app = await managedAppInstance("src/integration/integration.module.ts#IntegrationModule")
+    // Uses integration module regardless of env var
+  })
+})
+
+// Multi-app scenario
+describe("Multi-App Tests", () => {
+  it("should handle multiple app configurations", async () => {
+    const defaultApp = await managedAppInstance()
+    const testApp = await managedAppInstance("src/test/test.module.ts#TestModule")
+    
+    // Different instances, different configurations
+    expect(defaultApp).not.toBe(testApp)
   })
 })
 ```

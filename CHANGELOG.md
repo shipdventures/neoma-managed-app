@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-17
+
+### Added
+- **Multi-app support**: Multiple isolated app instances based on different module paths
+- **Module path parameter**: Optional `moduleDescriptor` parameter for `managedAppInstance()`
+- Comprehensive test suite for multi-app functionality
+- Parameter-specific test fixtures and scenarios
+
+### Changed
+- **BREAKING**: Enhanced `managedAppInstance()` to support multiple cached instances
+- Updated module path resolution with precedence: parameter > env var > default
+- Improved JSDoc documentation with multi-app examples and parameter usage
+- Enhanced README with comprehensive examples for all new features
+
+### Technical Details
+
+#### Multi-App Support
+- Each unique module path gets its own cached application instance
+- Different module paths create completely isolated app instances
+- Same module path returns the same cached instance (singleton per path)
+- Automatic cleanup of all cached instances after each test
+
+#### Module Path Parameter
+- New optional `moduleDescriptor` parameter for direct module path specification
+- Parameter takes highest precedence over environment variable and default path
+- Enables flexible test configuration without modifying environment variables
+- Maintains full backward compatibility with existing usage patterns
+
 ## [0.2.0] - 2025-11-13
 
 ### Added
@@ -39,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TypeScript support with comprehensive type definitions
 - Basic error handling for module loading failures
 
-[unreleased]: https://github.com/shipdventures/neoma-managed-app/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/shipdventures/neoma-managed-app/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/shipdventures/neoma-managed-app/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/shipdventures/neoma-managed-app/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shipdventures/neoma-managed-app/releases/tag/v0.1.0
