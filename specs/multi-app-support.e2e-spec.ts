@@ -10,6 +10,7 @@ const ENV_LOCATION = "src/env/env.module.ts"
 const ENV_MODULE = "EnvModule"
 const ENVIRONMENT_LOCATION = "src/env/environment.module.ts"
 const ENVIRONMENT_MODULE = "EnvironmentModule"
+const PARAMETER = `${ENV_LOCATION}#${ENV_MODULE}`
 
 describe("Multi-app support", () => {
   it("should load multiple apps depending on configuration", async () => {
@@ -34,5 +35,10 @@ describe("Multi-app support", () => {
       .expect({
         message: `Hello from ${ENVIRONMENT_LOCATION}#${ENVIRONMENT_MODULE}`,
       })
+
+    await request((await managedAppInstance(PARAMETER)).getHttpServer())
+      .get("/message")
+      .expect(HttpStatus.OK)
+      .expect({ message: `Hello from ${PARAMETER}` })
   })
 })

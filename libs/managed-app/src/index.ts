@@ -86,31 +86,43 @@ afterEach(async () => {
 /**
  * Provides a managed and initialised NestJS application instance for testing.
  *
- * This function ensures that only one instance of the application is created
- * and reused across multiple calls. It loads the default module as specified
- * by the environment variable or default path.
+ * This function supports multiple isolated application instances based on different
+ * module paths. Each unique module path gets its own cached instance that is reused
+ * across multiple calls with the same path.
  *
- * The module that is loaded can be specified using the environment variable
- * `NEOMA_MANAGED_APP_MODULE_PATH` in the format:
- * `path/to/module-file.ts#ExportedModuleName`
+ * Module path can be specified in three ways (in order of precedence):
+ * 1. Direct parameter: `managedAppInstance("path/to/module.ts#ExportName")`
+ * 2. Environment variable: `NEOMA_MANAGED_APP_MODULE_PATH=path/to/module.ts#ExportName`
+ * 3. Default path: `src/application/application.module.ts#ApplicationModule`
  *
- * If the environment variable is not set, it defaults to:
- * `src/application/application.module.ts#ApplicationModule`
+ * @param moduleDescriptor - Optional module path in format `path/to/module.ts#ExportedModuleName`.
+ *                          Takes precedence over environment variable and default path.
  *
  * @example
  * ```typescript
- * import { INestApplication } from "@nestjs/common"
- * import { managedAppInstance } from "@neoma/managed-app"
+ * // Using default module
+ * const app = await managedAppInstance()
  *
- * let app: INestApplication
- * beforeEach(async () => {
- *   app = await managedAppInstance()
- * })
+ * // Using environment variable
+ * process.env.NEOMA_MANAGED_APP_MODULE_PATH = "src/custom/module.ts#CustomModule"
+ * const app = await managedAppInstance()
+ *
+ * // Using direct parameter (overrides env var)
+ * const app = await managedAppInstance("src/other/module.ts#OtherModule")
+ *
+ * // Multiple apps with different configurations
+ * const defaultApp = await managedAppInstance()
+ * const customApp = await managedAppInstance("src/custom/module.ts#CustomModule")
+ * // defaultApp !== customApp (different instances)
+ * ```
  *
  * @returns A Promise that resolves to the managed {@link INestApplication} instance.
  */
-export const managedAppInstance = async (): Promise<INestApplication<App>> => {
+export const managedAppInstance = async (
+  moduleDescriptor?: string,
+): Promise<INestApplication<App>> => {
   const path =
+    moduleDescriptor ||
     process.env.NEOMA_MANAGED_APP_MODULE_PATH ||
     "src/application/application.module.ts#ApplicationModule"
 
