@@ -11,12 +11,12 @@ import { resolve } from "path"
 /**
  * Options for configuring a managed NestJS application instance.
  *
- * @param module - Module path in format `path/to/module.ts#ExportedModuleName`.
- *                Takes precedence over the `NEOMA_MANAGED_APP_MODULE_PATH` environment
- *                variable and the default path.
- * @param configure - Optional callback invoked after app creation but before `init()`.
- *                   Use this to configure the app instance (e.g., set global prefix,
- *                   enable CORS, register view engines). Can be sync or async.
+ * @property module - Module path in format `path/to/module.ts#ExportedModuleName`.
+ *                   Takes precedence over the `NEOMA_MANAGED_APP_MODULE_PATH` environment
+ *                   variable and the default path.
+ * @property configure - Optional callback invoked after app creation but before `init()`.
+ *                      Use this to configure the app instance (e.g., set global prefix,
+ *                      enable CORS, register view engines). Can be sync or async.
  */
 export interface ManagedAppOptions {
   module?: string
