@@ -15,6 +15,7 @@ A NestJS testing utility that provides managed application instance handling for
 - **Automatic Lifecycle Management**: Built-in Jest hooks handle app initialization and cleanup
 - **Dynamic Module Loading**: Load NestJS modules from configurable file paths via environment variables
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
+- **Configure Callback**: Hook into the app instance before initialization (global prefix, view engines, etc.)
 - **Zero Configuration**: Works out of the box with sensible defaults
 
 ## Installation
@@ -55,16 +56,22 @@ describe("My API", () => {
 
 ## API Reference
 
-### `managedAppInstance(moduleDescriptor?)`
+### `managedAppInstance(options?)`
 
 Creates and returns a managed NestJS application instance. Supports multiple isolated instances based on different module paths, with automatic caching and cleanup.
 
 ```typescript
-async function managedAppInstance(moduleDescriptor?: string): Promise<INestApplication<App>>
+async function managedAppInstance(
+  options?: string | ManagedAppOptions
+): Promise<INestApplication<App>>
 ```
 
 **Parameters**:
-- `moduleDescriptor` (optional): Module path in format `path/to/module.ts#ExportedModuleName`
+- `options` (optional): Either a module path string or a `ManagedAppOptions` object:
+  - As a **string**: Module path in format `path/to/module.ts#ExportedModuleName`
+  - As an **object**:
+    - `module` (optional): Module path in the same format as above
+    - `configure` (optional): Callback invoked after app creation but before `init()`. Can be sync or async.
 
 **Returns**: A Promise that resolves to a NestJS application instance
 
@@ -116,6 +123,35 @@ describe("Parameter Module Tests", () => {
   })
 })
 
+// Using a configure callback
+describe("MPA Tests", () => {
+  it("should apply global prefix", async () => {
+    const app = await managedAppInstance({
+      module: "src/mpa/mpa.module.ts#MpaModule",
+      configure: (app) => {
+        app.setGlobalPrefix("api")
+      },
+    })
+
+    return request(app.getHttpServer())
+      .get("/api/users")
+      .expect(200)
+  })
+})
+
+// Using an async configure callback
+describe("Async Configuration", () => {
+  it("should support async setup", async () => {
+    const app = await managedAppInstance({
+      configure: async (app) => {
+        app.setGlobalPrefix("v1")
+        app.enableCors()
+      },
+    })
+    // App is fully configured and initialized
+  })
+})
+
 // Multi-app scenario
 describe("Multi-App Tests", () => {
   it("should handle multiple app configurations", async () => {
@@ -127,6 +163,20 @@ describe("Multi-App Tests", () => {
   })
 })
 ```
+
+### `ManagedAppOptions`
+
+```typescript
+interface ManagedAppOptions {
+  module?: string
+  configure?: (app: INestApplication<App>) => void | Promise<void>
+}
+```
+
+| Property    | Type       | Description                                                                 |
+|-------------|------------|-----------------------------------------------------------------------------|
+| `module`    | `string`   | Module path in format `path/to/module.ts#ExportedModuleName`               |
+| `configure` | `function` | Callback invoked after app creation, before `init()`. Can be sync or async. |
 
 ### `nestJsApp(module)`
 
@@ -214,6 +264,38 @@ describe("Users API", () => {
   it("should get all users", () => {
     return request(app.getHttpServer())
       .get("/users")
+      .expect(200)
+  })
+})
+```
+
+### Configuring the App Instance
+
+Use the `configure` callback to set up the app before it initializes — useful for MPA setups, global prefixes, view engines, static assets, or CORS:
+
+```typescript
+import { managedAppInstance } from "@neoma/managed-app"
+import { NestExpressApplication } from "@nestjs/platform-express"
+import { join } from "path"
+
+describe("MPA E2E Tests", () => {
+  let app: INestApplication
+
+  beforeEach(async () => {
+    app = await managedAppInstance({
+      configure: (app) => {
+        app.setGlobalPrefix("api")
+        const expressApp = app as unknown as NestExpressApplication
+        expressApp.useStaticAssets(join(__dirname, "..", "public"))
+        expressApp.setBaseViewsDir(join(__dirname, "..", "views"))
+        expressApp.setViewEngine("hbs")
+      },
+    })
+  })
+
+  it("should serve the API under /api", () => {
+    return request(app.getHttpServer())
+      .get("/api/health")
       .expect(200)
   })
 })
@@ -364,7 +446,6 @@ npm run test:e2e -- --watch
 Potential future enhancements:
 
 - Support passing a module directly to `managedAppInstance(module)` for inline customization
-- Support for custom initialization logic hooks
 - Optional test isolation modes
 
 ## License
