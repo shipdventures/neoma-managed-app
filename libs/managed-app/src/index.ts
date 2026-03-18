@@ -9,6 +9,21 @@ import { App } from "supertest/types"
 import { resolve } from "path"
 
 /**
+ * Options for configuring a managed NestJS application instance.
+ *
+ * @param module - Module path in format `path/to/module.ts#ExportedModuleName`.
+ *                Takes precedence over the `NEOMA_MANAGED_APP_MODULE_PATH` environment
+ *                variable and the default path.
+ * @param configure - Optional callback invoked after app creation but before `init()`.
+ *                   Use this to configure the app instance (e.g., set global prefix,
+ *                   enable CORS, register view engines). Can be sync or async.
+ */
+export interface ManagedAppOptions {
+  module?: string
+  configure?: (app: INestApplication<App>) => void | Promise<void>
+}
+
+/**
  * Loads the default application module based on environment variable
  * or default paths.
  *
@@ -56,9 +71,13 @@ const loadAppModule = async (
 }
 
 /**
- * Creates a NestJS test application instance that loads the AppModule.
+ * Creates a NestJS test application instance from the given module.
  *
- * @prop m The module to load into the test application.
+ * This is a low-level utility that does NOT provide managed features
+ * (no singleton pattern, no automatic cleanup, no configure callback).
+ * Prefer {@link managedAppInstance} for most E2E testing scenarios.
+ *
+ * @param m - The module to load into the test application.
  *
  * @returns A {@link INestApplication} instance for e2e testing.
  */
@@ -95,32 +114,37 @@ afterEach(async () => {
  * 2. Environment variable: `NEOMA_MANAGED_APP_MODULE_PATH=path/to/module.ts#ExportName`
  * 3. Default path: `src/application/application.module.ts#ApplicationModule`
  *
- * @param moduleDescriptor - Optional module path in format `path/to/module.ts#ExportedModuleName`.
- *                          Takes precedence over environment variable and default path.
+ * @param options - Either a module path string or a {@link ManagedAppOptions} object.
+ *                 When a string, it is used as the module path.
+ *                 When an object, `module` specifies the path and `configure` provides
+ *                 an optional callback to configure the app before initialization.
  *
  * @example
  * ```typescript
  * // Using default module
  * const app = await managedAppInstance()
  *
- * // Using environment variable
- * process.env.NEOMA_MANAGED_APP_MODULE_PATH = "src/custom/module.ts#CustomModule"
- * const app = await managedAppInstance()
- *
- * // Using direct parameter (overrides env var)
+ * // Using a module path string
  * const app = await managedAppInstance("src/other/module.ts#OtherModule")
  *
- * // Multiple apps with different configurations
- * const defaultApp = await managedAppInstance()
- * const customApp = await managedAppInstance("src/custom/module.ts#CustomModule")
- * // defaultApp !== customApp (different instances)
+ * // Using options with a configure callback
+ * const app = await managedAppInstance({
+ *   module: "src/other/module.ts#OtherModule",
+ *   configure: (app) => {
+ *     app.setGlobalPrefix("api")
+ *   },
+ * })
  * ```
  *
  * @returns A Promise that resolves to the managed {@link INestApplication} instance.
  */
 export const managedAppInstance = async (
-  moduleDescriptor?: string,
+  options?: string | ManagedAppOptions,
 ): Promise<INestApplication<App>> => {
+  const moduleDescriptor =
+    typeof options === "string" ? options : options?.module
+  const configure = typeof options === "object" ? options?.configure : undefined
+
   const path =
     moduleDescriptor ||
     process.env.NEOMA_MANAGED_APP_MODULE_PATH ||
@@ -130,8 +154,14 @@ export const managedAppInstance = async (
   if (!appInstance) {
     const appDetails = await loadAppModule(path)
     appInstance = await nestJsApp(appDetails.module)
+    if (configure) {
+      await configure(appInstance)
+    }
+
+    await appInstance.init()
     appInstances[path] = appInstance
-    return appInstance.init()
+
+    return appInstance
   }
   return appInstance
 }
