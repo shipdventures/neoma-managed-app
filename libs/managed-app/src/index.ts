@@ -49,7 +49,10 @@ const loadAppModule = async (
   try {
     moduleImport = await import(fullPath)
   } catch (e) {
-    if (e.code === "MODULE_NOT_FOUND" || e.code === "ENOENT") {
+    if (
+      (e.code === "MODULE_NOT_FOUND" && e.moduleName === fullPath) ||
+      e.code === "ENOENT"
+    ) {
       throw new Error(
         `${modulePath} module not found. Please ensure a module exists at ${fullPath} with the named import ${exportName}.`,
       )
