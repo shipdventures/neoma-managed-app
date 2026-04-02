@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Build callback**: Optional `build` callback in `ManagedAppOptions` for pre-compile customisation
+- `TestingModuleBuilder` access enabling `overrideProvider()`, `overrideGuard()`, `overrideInterceptor()`, etc. in e2e tests
+- E2E test suite for build callback functionality
+- Documentation for `jest.resetModules()` + Symbol-based token caveat with workarounds
+
+### Changed
+- `nestJsApp()` now accepts an optional `build` callback parameter
+- Scoped `jest.resetModules()` to `application.e2e-spec.ts` only (was previously global), preventing Symbol identity issues in other test suites
+
 ## [0.3.0] - 2025-11-17
 
 ### Added

@@ -4,7 +4,7 @@ import {
   INestApplication,
   Type,
 } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { Test, TestingModuleBuilder } from "@nestjs/testing"
 import { App } from "supertest/types"
 import { resolve } from "path"
 
@@ -14,12 +14,20 @@ import { resolve } from "path"
  * @property module - Module path in format `path/to/module.ts#ExportedModuleName`.
  *                   Takes precedence over the `NEOMA_MANAGED_APP_MODULE_PATH` environment
  *                   variable and the default path.
+ * @property build - Optional callback invoked after `Test.createTestingModule()` but before
+ *                  `compile()`. Receives the {@link TestingModuleBuilder}, enabling NestJS
+ *                  testing overrides such as `overrideProvider()`, `overrideGuard()`,
+ *                  `overrideInterceptor()`, etc. Must return the builder (enables chaining
+ *                  with NestJS's fluent API). Note: caching is based on module path, so
+ *                  `build` is only invoked on the first call for a given path — the same
+ *                  behaviour as `configure`.
  * @property configure - Optional callback invoked after app creation but before `init()`.
  *                      Use this to configure the app instance (e.g., set global prefix,
  *                      enable CORS, register view engines). Can be sync or async.
  */
 export interface ManagedAppOptions {
   module?: string
+  build?: (builder: TestingModuleBuilder) => TestingModuleBuilder
   configure?: (app: INestApplication<App>) => void | Promise<void>
 }
 
@@ -81,15 +89,24 @@ const loadAppModule = async (
  * Prefer {@link managedAppInstance} for most E2E testing scenarios.
  *
  * @param m - The module to load into the test application.
+ * @param build - Optional callback to customise the {@link TestingModuleBuilder}
+ *               before compilation (e.g. `overrideProvider()`).
  *
  * @returns A {@link INestApplication} instance for e2e testing.
  */
 export const nestJsApp = async (
   m: Type<any> | DynamicModule | Promise<DynamicModule> | ForwardReference,
+  build?: ManagedAppOptions["build"],
 ): Promise<INestApplication<App>> => {
-  const moduleFixture = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [m],
-  }).compile()
+  })
+
+  if (build) {
+    builder = build(builder)
+  }
+
+  const moduleFixture = await builder.compile()
 
   return moduleFixture.createNestApplication({
     bufferLogs: true,
@@ -119,8 +136,10 @@ afterEach(async () => {
  *
  * @param options - Either a module path string or a {@link ManagedAppOptions} object.
  *                 When a string, it is used as the module path.
- *                 When an object, `module` specifies the path and `configure` provides
- *                 an optional callback to configure the app before initialization.
+ *                 When an object, `module` specifies the path, `build` provides an optional
+ *                 callback to customise the {@link TestingModuleBuilder} before compilation,
+ *                 and `configure` provides an optional callback to configure the app before
+ *                 initialization.
  *
  * @example
  * ```typescript
@@ -129,6 +148,13 @@ afterEach(async () => {
  *
  * // Using a module path string
  * const app = await managedAppInstance("src/other/module.ts#OtherModule")
+ *
+ * // Using a build callback to override providers
+ * const app = await managedAppInstance({
+ *   module: "src/other/module.ts#OtherModule",
+ *   build: (builder) =>
+ *     builder.overrideProvider(MyService).useValue({ find: jest.fn() }),
+ * })
  *
  * // Using options with a configure callback
  * const app = await managedAppInstance({
@@ -146,6 +172,7 @@ export const managedAppInstance = async (
 ): Promise<INestApplication<App>> => {
   const moduleDescriptor =
     typeof options === "string" ? options : options?.module
+  const build = typeof options === "object" ? options?.build : undefined
   const configure = typeof options === "object" ? options?.configure : undefined
 
   const path =
@@ -156,7 +183,7 @@ export const managedAppInstance = async (
   let appInstance = appInstances[path]
   if (!appInstance) {
     const appDetails = await loadAppModule(path)
-    appInstance = await nestJsApp(appDetails.module)
+    appInstance = await nestJsApp(appDetails.module, build)
     if (configure) {
       await configure(appInstance)
     }

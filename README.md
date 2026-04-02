@@ -15,6 +15,7 @@ A NestJS testing utility that provides managed application instance handling for
 - **Automatic Lifecycle Management**: Built-in Jest hooks handle app initialization and cleanup
 - **Dynamic Module Loading**: Load NestJS modules from configurable file paths via environment variables
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
+- **Build Callback**: Customise the `TestingModuleBuilder` before compilation (override providers, guards, interceptors, etc.)
 - **Configure Callback**: Hook into the app instance before initialization (global prefix, view engines, etc.)
 - **Zero Configuration**: Works out of the box with sensible defaults
 
@@ -71,6 +72,7 @@ async function managedAppInstance(
   - As a **string**: Module path in format `path/to/module.ts#ExportedModuleName`
   - As an **object**:
     - `module` (optional): Module path in the same format as above
+    - `build` (optional): Callback invoked after `Test.createTestingModule()` but before `compile()`. Receives and must return the `TestingModuleBuilder` for overriding providers, guards, interceptors, etc.
     - `configure` (optional): Callback invoked after app creation but before `init()`. Can be sync or async.
 
 **Returns**: A Promise that resolves to a NestJS application instance
@@ -152,6 +154,24 @@ describe("Async Configuration", () => {
   })
 })
 
+// Using a build callback to override providers
+describe("Provider Override Tests", () => {
+  it("should use the mock service", async () => {
+    const app = await managedAppInstance({
+      module: "src/app/app.module.ts#AppModule",
+      build: (builder) =>
+        builder.overrideProvider(MyService).useValue({
+          findAll: jest.fn().mockResolvedValue([]),
+        }),
+    })
+
+    return request(app.getHttpServer())
+      .get("/items")
+      .expect(200)
+      .expect([])
+  })
+})
+
 // Multi-app scenario
 describe("Multi-App Tests", () => {
   it("should handle multiple app configurations", async () => {
@@ -169,16 +189,20 @@ describe("Multi-App Tests", () => {
 ```typescript
 interface ManagedAppOptions {
   module?: string
+  build?: (builder: TestingModuleBuilder) => TestingModuleBuilder
   configure?: (app: INestApplication<App>) => void | Promise<void>
 }
 ```
 
-| Property    | Type       | Description                                                                 |
-|-------------|------------|-----------------------------------------------------------------------------|
-| `module`    | `string`   | Module path in format `path/to/module.ts#ExportedModuleName`               |
-| `configure` | `function` | Callback invoked after app creation, before `init()`. Can be sync or async. |
+| Property    | Type       | Description                                                                                                                     |
+|-------------|------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `module`    | `string`   | Module path in format `path/to/module.ts#ExportedModuleName`                                                                   |
+| `build`     | `function` | Callback invoked before `compile()`. Receives the `TestingModuleBuilder` for overriding providers, guards, interceptors, etc.  |
+| `configure` | `function` | Callback invoked after app creation, before `init()`. Can be sync or async.                                                    |
 
-### `nestJsApp(module)`
+> **Note:** Both `build` and `configure` are only invoked on the first call for a given module path. Subsequent calls return the cached instance.
+
+### `nestJsApp(module, build?)`
 
 A basic utility function that creates a NestJS test application instance from a provided module.
 
@@ -186,12 +210,14 @@ A basic utility function that creates a NestJS test application instance from a 
 
 ```typescript
 async function nestJsApp(
-  m: Type<any> | DynamicModule | Promise<DynamicModule> | ForwardReference
+  m: Type<any> | DynamicModule | Promise<DynamicModule> | ForwardReference,
+  build?: (builder: TestingModuleBuilder) => TestingModuleBuilder
 ): Promise<INestApplication<App>>
 ```
 
 **Parameters**:
 - `m`: The NestJS module to create the app from
+- `build` (optional): Callback to customise the `TestingModuleBuilder` before compilation
 
 **Returns**: A Promise that resolves to a NestJS application instance
 
@@ -268,6 +294,89 @@ describe("Users API", () => {
   })
 })
 ```
+
+### Overriding Providers in Tests
+
+Use the `build` callback to override providers, guards, or interceptors before the module compiles — ideal for mocking services in e2e tests:
+
+```typescript
+import { INestApplication } from "@nestjs/common"
+import * as request from "supertest"
+import { managedAppInstance } from "@neoma/managed-app"
+import { MailService } from "../src/mail/mail.service"
+
+describe("Mail API", () => {
+  let app: INestApplication
+
+  beforeEach(async () => {
+    app = await managedAppInstance({
+      module: "src/app/app.module.ts#AppModule",
+      build: (builder) =>
+        builder.overrideProvider(MailService).useValue({
+          send: jest.fn().mockResolvedValue({ success: true }),
+        }),
+    })
+  })
+
+  it("should send mail using the mock", () => {
+    return request(app.getHttpServer())
+      .post("/mail/send")
+      .send({ to: "test@example.com" })
+      .expect(200)
+  })
+})
+```
+
+### Caveat: `jest.resetModules()` and Symbol-based Tokens
+
+If your test setup calls `jest.resetModules()` globally (e.g. in a shared `afterEach`), **Symbol-based injection tokens will break** when used with the `build` callback.
+
+#### Why this happens
+
+This library loads modules dynamically via `await import()`. When `jest.resetModules()` clears Jest's module cache, the next dynamic import re-evaluates the module file — creating **new** Symbol instances for any Symbol-based tokens. A static `import { MY_TOKEN } from "..."` at the top of your test file still holds the **original** Symbol from the first evaluation. Since `Symbol("X") !== Symbol("X")`, `overrideProvider(originalSymbol)` silently fails to match the provider registered with the new Symbol.
+
+#### How to avoid it
+
+**Option 1 (recommended):** Scope `jest.resetModules()` to only the tests that need it, rather than applying it globally:
+
+```typescript
+// Only in specs that genuinely need module re-evaluation
+afterEach(() => {
+  jest.resetModules()
+})
+```
+
+**Option 2:** If you must use a global `jest.resetModules()`, dynamically import the token in each test so it matches the re-evaluated module:
+
+```typescript
+import { resolve } from "path"
+
+async function loadMyToken() {
+  const mod = await import(resolve("src/my/service"))
+  return mod.MY_TOKEN
+}
+
+it("should override the provider", async () => {
+  const TOKEN = await loadMyToken()
+  const app = await managedAppInstance({
+    build: (builder) =>
+      builder.overrideProvider(TOKEN).useValue(mockValue),
+  })
+})
+```
+
+**Option 3:** Use class-based or string-based tokens instead of Symbols — these survive module re-evaluation since their identity is based on value, not reference:
+
+```typescript
+// String token — works across module reloads
+const MY_TOKEN = "MY_TOKEN"
+
+// Class token — identity is stable if statically imported
+@Injectable()
+class MyService { ... }
+```
+
+> **Note:** This issue is not specific to this library — it affects any NestJS testing setup that combines dynamic imports, `jest.resetModules()`, and Symbol-based injection tokens.
 
 ### Configuring the App Instance
 
