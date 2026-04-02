@@ -72,7 +72,7 @@ async function managedAppInstance(
   - As a **string**: Module path in format `path/to/module.ts#ExportedModuleName`
   - As an **object**:
     - `module` (optional): Module path in the same format as above
-    - `build` (optional): Callback invoked after `Test.createTestingModule()` but before `compile()`. Receives the `TestingModuleBuilder` for overriding providers, guards, interceptors, etc.
+    - `build` (optional): Callback invoked after `Test.createTestingModule()` but before `compile()`. Receives and must return the `TestingModuleBuilder` for overriding providers, guards, interceptors, etc.
     - `configure` (optional): Callback invoked after app creation but before `init()`. Can be sync or async.
 
 **Returns**: A Promise that resolves to a NestJS application instance
@@ -300,6 +300,8 @@ describe("Users API", () => {
 Use the `build` callback to override providers, guards, or interceptors before the module compiles — ideal for mocking services in e2e tests:
 
 ```typescript
+import { INestApplication } from "@nestjs/common"
+import * as request from "supertest"
 import { managedAppInstance } from "@neoma/managed-app"
 import { MailService } from "../src/mail/mail.service"
 
@@ -308,6 +310,7 @@ describe("Mail API", () => {
 
   beforeEach(async () => {
     app = await managedAppInstance({
+      module: "src/app/app.module.ts#AppModule",
       build: (builder) =>
         builder.overrideProvider(MailService).useValue({
           send: jest.fn().mockResolvedValue({ success: true }),

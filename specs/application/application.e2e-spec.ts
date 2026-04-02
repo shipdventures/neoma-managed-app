@@ -19,8 +19,9 @@ const ERROR_MODULE = "ErrorModule"
  * from a previous test even after the file has been replaced or deleted.
  *
  * This reset is scoped to this spec only — it is not needed by other specs
- * that use fixed module paths. See the build-callback spec for a note on
- * why a global `jest.resetModules()` can break Symbol-based injection tokens.
+ * that use fixed module paths. See the README's "Caveat: jest.resetModules()
+ * and Symbol-based Tokens" section for why a global `jest.resetModules()` can
+ * break Symbol-based injection tokens.
  */
 afterEach(() => {
   jest.resetModules()
