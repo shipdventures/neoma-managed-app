@@ -14,5 +14,4 @@ afterEach(() => {
     rmSync(LOCATION)
   }
   delete process.env.NEOMA_MANAGED_APP_MODULE_PATH
-  jest.resetModules()
 })

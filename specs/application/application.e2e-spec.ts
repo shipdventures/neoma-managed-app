@@ -12,6 +12,20 @@ const MODULE = "ApplicationModule"
 const ERROR_SRC = "src/application/bak.error.module.ts"
 const ERROR_MODULE = "ErrorModule"
 
+/**
+ * This spec copies different files to `application.module.ts` before each
+ * test and deletes it afterwards (via the global fixture). Without
+ * `jest.resetModules()`, Node's module cache would serve the stale version
+ * from a previous test even after the file has been replaced or deleted.
+ *
+ * This reset is scoped to this spec only — it is not needed by other specs
+ * that use fixed module paths. See the build-callback spec for a note on
+ * why a global `jest.resetModules()` can break Symbol-based injection tokens.
+ */
+afterEach(() => {
+  jest.resetModules()
+})
+
 describe(LOCATION, () => {
   describe(`When there is a module at ${LOCATION} with the export ${MODULE}`, () => {
     let app: INestApplication<App>
