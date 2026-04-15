@@ -2,6 +2,7 @@ import {
   DynamicModule,
   ForwardReference,
   INestApplication,
+  NestApplicationOptions,
   Type,
 } from "@nestjs/common"
 import { Test, TestingModuleBuilder } from "@nestjs/testing"
@@ -21,12 +22,17 @@ import { resolve } from "path"
  *                  with NestJS's fluent API). Note: caching is based on module path, so
  *                  `build` is only invoked on the first call for a given path — the same
  *                  behaviour as `configure`.
+ * @property nestApplicationOptions - Optional NestJS application options passed to
+ *                                    `createNestApplication()`. Merged on top of
+ *                                    `{ bufferLogs: true }`, so consumer values take
+ *                                    precedence over defaults.
  * @property configure - Optional callback invoked after app creation but before `init()`.
  *                      Use this to configure the app instance (e.g., set global prefix,
  *                      enable CORS, register view engines). Can be sync or async.
  */
 export interface ManagedAppOptions {
   module?: string
+  nestApplicationOptions?: NestApplicationOptions
   build?: (builder: TestingModuleBuilder) => TestingModuleBuilder
   configure?: (app: INestApplication<App>) => void | Promise<void>
 }
@@ -91,12 +97,17 @@ const loadAppModule = async (
  * @param m - The module to load into the test application.
  * @param build - Optional callback to customise the {@link TestingModuleBuilder}
  *               before compilation (e.g. `overrideProvider()`).
+ * @param nestApplicationOptions - Optional {@link NestApplicationOptions} passed to
+ *                                `createNestApplication()`. Merged on top of
+ *                                `{ bufferLogs: true }`, so consumer values take
+ *                                precedence over defaults.
  *
  * @returns A {@link INestApplication} instance for e2e testing.
  */
 export const nestJsApp = async (
   m: Type<any> | DynamicModule | Promise<DynamicModule> | ForwardReference,
   build?: ManagedAppOptions["build"],
+  nestApplicationOptions?: NestApplicationOptions,
 ): Promise<INestApplication<App>> => {
   let builder = Test.createTestingModule({
     imports: [m],
@@ -110,6 +121,7 @@ export const nestJsApp = async (
 
   return moduleFixture.createNestApplication({
     bufferLogs: true,
+    ...nestApplicationOptions,
   })
 }
 
@@ -173,6 +185,8 @@ export const managedAppInstance = async (
   const moduleDescriptor =
     typeof options === "string" ? options : options?.module
   const build = typeof options === "object" ? options?.build : undefined
+  const nestApplicationOptions =
+    typeof options === "object" ? options?.nestApplicationOptions : undefined
   const configure = typeof options === "object" ? options?.configure : undefined
 
   const path =
@@ -183,7 +197,11 @@ export const managedAppInstance = async (
   let appInstance = appInstances[path]
   if (!appInstance) {
     const appDetails = await loadAppModule(path)
-    appInstance = await nestJsApp(appDetails.module, build)
+    appInstance = await nestJsApp(
+      appDetails.module,
+      build,
+      nestApplicationOptions,
+    )
     if (configure) {
       await configure(appInstance)
     }

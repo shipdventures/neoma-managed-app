@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `nestApplicationOptions` property on `ManagedAppOptions` for passing `NestApplicationOptions` to `createNestApplication()`
+- `nestJsApp()` accepts an optional third parameter for `NestApplicationOptions`
+
 ## [0.5.0] - 2026-04-02
 
 ### Added
