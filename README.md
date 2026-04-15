@@ -17,6 +17,7 @@ A NestJS testing utility that provides managed application instance handling for
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **Build Callback**: Customise the `TestingModuleBuilder` before compilation (override providers, guards, interceptors, etc.)
 - **Configure Callback**: Hook into the app instance before initialization (global prefix, view engines, etc.)
+- **NestJS Application Options**: Pass `NestApplicationOptions` (e.g. `rawBody`, `cors`) to the underlying `createNestApplication()` call
 - **Zero Configuration**: Works out of the box with sensible defaults
 
 ## Installation
@@ -73,6 +74,7 @@ async function managedAppInstance(
   - As an **object**:
     - `module` (optional): Module path in the same format as above
     - `build` (optional): Callback invoked after `Test.createTestingModule()` but before `compile()`. Receives and must return the `TestingModuleBuilder` for overriding providers, guards, interceptors, etc.
+    - `nestApplicationOptions` (optional): `NestApplicationOptions` passed to `createNestApplication()`. Merged on top of `{ bufferLogs: true }`, so consumer values take precedence over defaults.
     - `configure` (optional): Callback invoked after app creation but before `init()`. Can be sync or async.
 
 **Returns**: A Promise that resolves to a NestJS application instance
@@ -172,6 +174,21 @@ describe("Provider Override Tests", () => {
   })
 })
 
+// Passing NestJS application options (e.g. rawBody for Stripe webhooks)
+describe("Raw Body Tests", () => {
+  it("should enable raw body parsing", async () => {
+    const app = await managedAppInstance({
+      module: "src/app/app.module.ts#AppModule",
+      nestApplicationOptions: { rawBody: true },
+    })
+
+    return request(app.getHttpServer())
+      .post("/webhooks/stripe")
+      .send('{"type":"checkout.session.completed"}')
+      .expect(200)
+  })
+})
+
 // Multi-app scenario
 describe("Multi-App Tests", () => {
   it("should handle multiple app configurations", async () => {
@@ -189,20 +206,22 @@ describe("Multi-App Tests", () => {
 ```typescript
 interface ManagedAppOptions {
   module?: string
+  nestApplicationOptions?: NestApplicationOptions
   build?: (builder: TestingModuleBuilder) => TestingModuleBuilder
   configure?: (app: INestApplication<App>) => void | Promise<void>
 }
 ```
 
-| Property    | Type       | Description                                                                                                                     |
-|-------------|------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `module`    | `string`   | Module path in format `path/to/module.ts#ExportedModuleName`                                                                   |
-| `build`     | `function` | Callback invoked before `compile()`. Receives the `TestingModuleBuilder` for overriding providers, guards, interceptors, etc.  |
-| `configure` | `function` | Callback invoked after app creation, before `init()`. Can be sync or async.                                                    |
+| Property                 | Type                     | Description                                                                                                                     |
+|--------------------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `module`                 | `string`                 | Module path in format `path/to/module.ts#ExportedModuleName`                                                                   |
+| `nestApplicationOptions` | `NestApplicationOptions` | Options passed to `createNestApplication()`. Merged on top of `{ bufferLogs: true }` — consumer values take precedence.        |
+| `build`                  | `function`               | Callback invoked before `compile()`. Receives the `TestingModuleBuilder` for overriding providers, guards, interceptors, etc.  |
+| `configure`              | `function`               | Callback invoked after app creation, before `init()`. Can be sync or async.                                                    |
 
-> **Note:** Both `build` and `configure` are only invoked on the first call for a given module path. Subsequent calls return the cached instance.
+> **Note:** `build`, `nestApplicationOptions`, and `configure` are only applied on the first call for a given module path. Subsequent calls return the cached instance.
 
-### `nestJsApp(module, build?)`
+### `nestJsApp(module, build?, nestApplicationOptions?)`
 
 A basic utility function that creates a NestJS test application instance from a provided module.
 
@@ -211,13 +230,15 @@ A basic utility function that creates a NestJS test application instance from a 
 ```typescript
 async function nestJsApp(
   m: Type<any> | DynamicModule | Promise<DynamicModule> | ForwardReference,
-  build?: (builder: TestingModuleBuilder) => TestingModuleBuilder
+  build?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+  nestApplicationOptions?: NestApplicationOptions
 ): Promise<INestApplication<App>>
 ```
 
 **Parameters**:
 - `m`: The NestJS module to create the app from
 - `build` (optional): Callback to customise the `TestingModuleBuilder` before compilation
+- `nestApplicationOptions` (optional): `NestApplicationOptions` passed to `createNestApplication()`. Merged on top of `{ bufferLogs: true }`.
 
 **Returns**: A Promise that resolves to a NestJS application instance
 
